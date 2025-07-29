@@ -1,4 +1,4 @@
-// lib/models/weather_model.dart
+
 class Weather {
   final String cityName;
   final double temperature;
@@ -27,7 +27,7 @@ class Weather {
     return Weather(
       cityName: cityName,
       temperature: json['main']['temp'].toDouble(),
-      mainCondition: json['weather'][0]['main'],
+      mainCondition: json['weather'][0]['description'],
       iconCode: json['weather'][0]['icon'],
       dateTime: dateTime,
     );
