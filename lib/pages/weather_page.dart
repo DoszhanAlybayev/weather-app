@@ -7,6 +7,7 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:weather_app/models/city_model.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'dart:math';
 
 class WeatherPage extends StatefulWidget {
   const WeatherPage({super.key});
@@ -18,7 +19,8 @@ class WeatherPage extends StatefulWidget {
 class _WeatherPageState extends State<WeatherPage> {
   final _weatherService = WeatherService();
   Weather? _weather;
-  List<Weather>? _forecast;
+  List<Weather>? _forecast; // 3-часовой прогноз
+  List<Weather>? _dailyForecast; // Дневной прогноз
   String _cityName = "Almaty";
 
   final TextEditingController _cityController = TextEditingController();
@@ -30,6 +32,7 @@ class _WeatherPageState extends State<WeatherPage> {
     super.initState();
     _fetchWeatherAndForecast(_cityName);
     _cityController.addListener(_onCityControllerChanged);
+    Intl.defaultLocale = 'ru';
   }
 
   void _onCityControllerChanged() {
@@ -43,28 +46,99 @@ class _WeatherPageState extends State<WeatherPage> {
     super.dispose();
   }
 
-  // Метод для получения текущей погоды и прогноза по названию города
+  // Метод для обработки 3-часового прогноза и формирования дневного
+  List<Weather> _processDailyForecast(List<Weather> hourlyForecast) {
+    if (hourlyForecast.isEmpty) return [];
+
+    final Map<String, List<Weather>> dailyGroupedForecast = {};
+    for (var item in hourlyForecast) {
+      // Группируем по дате (без времени)
+      final dateKey = DateFormat('yyyy-MM-dd').format(item.dateTime!);
+      if (!dailyGroupedForecast.containsKey(dateKey)) {
+        dailyGroupedForecast[dateKey] = [];
+      }
+      dailyGroupedForecast[dateKey]!.add(item);
+    }
+
+    final List<Weather> processedDailyForecast = [];
+    final now = DateTime.now();
+    // Нормализуем текущую дату до начала дня для сравнения
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
+
+    dailyGroupedForecast.forEach((dateKey, dayItems) {
+      // Игнорируем сегодняшний день, так как его погода уже отображается отдельно
+      if (dateKey == todayKey) {
+        return;
+      }
+
+      double minTemp = double.infinity;
+      double maxTemp = double.negativeInfinity;
+      Weather? mainDayWeather; // Погода, наиболее репрезентативная для дня
+
+      // Сортируем элементы по времени для удобства
+      dayItems.sort((a, b) => a.dateTime!.compareTo(b.dateTime!));
+
+      for (var item in dayItems) {
+        minTemp = min(minTemp, item.temperature);
+        maxTemp = max(maxTemp, item.temperature);
+
+        // Пытаемся найти прогноз на полдень (12:00) или ближайшее к нему время
+        // Если уже есть mainDayWeather, обновляем только если текущий элемент ближе к 12:00
+        if (mainDayWeather == null ||
+            (item.dateTime!.hour - 12).abs() < (mainDayWeather.dateTime!.hour - 12).abs()) {
+          mainDayWeather = item;
+        }
+      }
+
+      if (mainDayWeather != null) {
+        processedDailyForecast.add(
+          Weather(
+            cityName: mainDayWeather.cityName,
+            temperature: mainDayWeather.temperature, // Оставляем температуру из выбранного "основного" прогноза
+            mainCondition: mainDayWeather.mainCondition,
+            iconCode: mainDayWeather.iconCode,
+            weatherId: mainDayWeather.weatherId,
+            dateTime: mainDayWeather.dateTime,
+            minTemperature: minTemp, // <--- Заполняем минимальную температуру
+            maxTemperature: maxTemp, // <--- Заполняем максимальную температуру
+          ),
+        );
+      }
+    });
+
+    // Сортируем дневной прогноз по дате
+    processedDailyForecast.sort((a, b) => a.dateTime!.compareTo(b.dateTime!));
+
+    // Оставляем только 4 дня вперед (без сегодняшнего)
+    return processedDailyForecast.take(4).toList();
+  }
+
   _fetchWeatherAndForecast(String cityName) async {
     setState(() {
       _weather = null;
       _forecast = null;
+      _dailyForecast = null;
       _errorMessage = null;
     });
     try {
       final current = await _weatherService.getWeather(cityName);
       final forecast = await _weatherService.getForecast(cityName);
+      final daily = _processDailyForecast(forecast);
+
       setState(() {
         _weather = current;
         _forecast = forecast;
+        _dailyForecast = daily;
         _cityName = current.cityName;
-        print("API mainCondition (by city, text): ${_weather!.mainCondition}"); // Будет на русском
-        print("API weatherId (by city, for animation): ${_weather!.weatherId}"); // Число для анимации
+        print("API mainCondition (by city, text): ${_weather!.mainCondition}");
+        print("API weatherId (by city, for animation): ${_weather!.weatherId}");
       });
     } catch (e) {
       print("Ошибка при загрузке погоды: $e");
       setState(() {
         _weather = null;
         _forecast = null;
+        _dailyForecast = null;
         if (e.toString().contains('404')) {
           _errorMessage = 'Город не найден. Пожалуйста, проверьте название.';
         } else {
@@ -77,29 +151,32 @@ class _WeatherPageState extends State<WeatherPage> {
     }
   }
 
-  // Метод для получения погоды по координатам
   _fetchWeatherAndForecastByCoordinates(double lat, double lon) async {
     setState(() {
       _weather = null;
       _forecast = null;
+      _dailyForecast = null;
       _errorMessage = null;
     });
     try {
       final current = await _weatherService.getWeatherByCoordinates(lat, lon);
       final forecast = await _weatherService.getForecastByCoordinates(lat, lon);
+      final daily = _processDailyForecast(forecast);
 
       setState(() {
         _weather = current;
         _forecast = forecast;
+        _dailyForecast = daily;
         _cityName = current.cityName;
-        print("API mainCondition (by coords, text): ${_weather!.mainCondition}"); // Будет на русском
-        print("API weatherId (by coords, for animation): ${_weather!.weatherId}"); // Число для анимации
+        print("API mainCondition (by coords, text): ${_weather!.mainCondition}");
+        print("API weatherId (by coords, for animation): ${_weather!.weatherId}");
       });
     } catch (e) {
       print("Ошибка при загрузке погоды по координатам: $e");
       setState(() {
         _weather = null;
         _forecast = null;
+        _dailyForecast = null;
         _errorMessage = 'Не удалось загрузить данные о погоде по местоположению.';
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,7 +185,6 @@ class _WeatherPageState extends State<WeatherPage> {
     }
   }
 
-  // НОВЫЙ МЕТОД (восстановленный): Получение текущего местоположения пользователя
   _fetchCurrentLocationWeather() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -143,6 +219,7 @@ class _WeatherPageState extends State<WeatherPage> {
       setState(() {
         _weather = null;
         _forecast = null;
+        _dailyForecast = null;
         _errorMessage = null;
       });
       Position position = await Geolocator.getCurrentPosition(
@@ -162,31 +239,21 @@ class _WeatherPageState extends State<WeatherPage> {
     }
   }
 
-  // ОБНОВЛЕННАЯ ФУНКЦИЯ: ИСПОЛЬЗУЕМ weatherId
   String getWeatherAnimation(int weatherId) {
-    // OpenWeatherMap ID ranges:
-    // 2xx Thunderstorm
-    // 3xx Drizzle
-    // 5xx Rain
-    // 6xx Snow
-    // 7xx Atmosphere (Mist, Smoke, Haze, Dust, Fog, Sand, Ash, Squall, Tornado)
-    // 800 Clear
-    // 801-804 Clouds
-
     if (weatherId >= 200 && weatherId <= 232) {
-      return 'assets/animations/thunder.json'; // Гроза
+      return 'assets/animations/thunder.json';
     } else if (weatherId >= 300 && weatherId <= 321) {
-      return 'assets/animations/rainy.json'; // Морось
+      return 'assets/animations/rainy.json';
     } else if (weatherId >= 500 && weatherId <= 531) {
-      return 'assets/animations/rainy.json'; // Дождь
+      return 'assets/animations/rainy.json';
     } else if (weatherId >= 600 && weatherId <= 622) {
-      return 'assets/animations/snowy.json'; // Снег
+      return 'assets/animations/snowy.json';
     } else if (weatherId >= 701 && weatherId <= 781) {
-      return 'assets/animations/cloudy.json'; // Атмосферные явления (туман, дымка и т.д.)
+      return 'assets/animations/cloudy.json';
     } else if (weatherId == 800) {
-      return 'assets/animations/sunny.json'; // Ясное небо
+      return 'assets/animations/sunny.json';
     } else if (weatherId >= 801 && weatherId <= 804) {
-      return 'assets/animations/cloudy.json'; // Облака
+      return 'assets/animations/cloudy.json';
     } else {
       print("Unknown weather ID: $weatherId. Defaulting to sunny animation.");
       return 'assets/animations/sunny.json';
@@ -212,14 +279,14 @@ class _WeatherPageState extends State<WeatherPage> {
           IconButton(
             icon: const Icon(Icons.location_on),
             onPressed: () {
-              _fetchCurrentLocationWeather(); // <--- ЭТОТ МЕТОД ТЕПЕРЬ ЕСТЬ
+              _fetchCurrentLocationWeather();
             },
             tooltip: 'Мое местоположение',
           ),
         ],
       ),
       body: Center(
-        child: (_weather == null || _forecast == null)
+        child: (_weather == null || _forecast == null || _dailyForecast == null)
             ? (_errorMessage != null
                 ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -381,7 +448,7 @@ class _WeatherPageState extends State<WeatherPage> {
                     const SizedBox(height: 30),
                     const Text(
                       'Прогноз на ближайшие часы:',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
                     SizedBox(
@@ -402,7 +469,7 @@ class _WeatherPageState extends State<WeatherPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Container(
-                              width: 135,
+                              width: 130,
                               padding: const EdgeInsets.all(12.0),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -430,7 +497,7 @@ class _WeatherPageState extends State<WeatherPage> {
                                   Expanded(
                                     child: Text(
                                       forecastItem.mainCondition,
-                                      style: const TextStyle(fontSize: 13),
+                                      style: const TextStyle(fontSize: 12),
                                       textAlign: TextAlign.center,
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 3,
@@ -442,6 +509,75 @@ class _WeatherPageState extends State<WeatherPage> {
                           );
                         },
                       ),
+                    ),
+                    const SizedBox(height: 30),
+                    // НОВЫЙ РАЗДЕЛ: ПРОГНОЗ НА ДНИ ВПЕРЕД
+                    if (_dailyForecast != null && _dailyForecast!.isNotEmpty)
+                      const Text(
+                        'Прогноз на несколько дней:',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    const SizedBox(height: 15),
+                    Column(
+                      children: _dailyForecast!.map((dayForecast) {
+                        final dayOfWeek = DateFormat('EEEE', 'ru').format(dayForecast.dateTime!);
+                        final date = DateFormat('dd MMMM', 'ru').format(dayForecast.dateTime!);
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      dayOfWeek,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                    ),
+                                    Text(
+                                      date,
+                                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    // Отображаем основное погодное условие дня
+                                    Text(
+                                      dayForecast.mainCondition,
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                Lottie.asset(
+                                  getWeatherAnimation(dayForecast.weatherId),
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.contain,
+                                ),
+                                // Отображаем MIN/MAX температуры
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Макс: ${dayForecast.maxTemperature?.round()}°C',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(
+                                      'Мин: ${dayForecast.minTemperature?.round()}°C',
+                                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 20),
                   ],

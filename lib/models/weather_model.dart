@@ -1,21 +1,25 @@
 
-import 'package:flutter/foundation.dart'; // Добавим для debugPrint
+import 'package:flutter/foundation.dart';
 
 class Weather {
   final String cityName;
   final double temperature;
-  final String mainCondition; // Теперь это будет русское описание
-  final String iconCode; // Код иконки погоды
-  final DateTime? dateTime; // Для прогноза
-  final int weatherId; // <--- НОВОЕ ПОЛЕ: для анимации по ID
+  final String mainCondition;
+  final String iconCode;
+  final DateTime? dateTime;
+  final int weatherId;
+  final double? minTemperature;
+  final double? maxTemperature; 
 
   Weather({
     required this.cityName,
     required this.temperature,
     required this.mainCondition,
     required this.iconCode,
-    required this.weatherId, // <--- Обязательно в конструкторе
+    required this.weatherId,
     this.dateTime,
+    this.minTemperature,
+    this.maxTemperature, 
   });
 
   factory Weather.fromJson(Map<String, dynamic> json) {
@@ -35,10 +39,12 @@ class Weather {
     return Weather(
       cityName: cityName,
       temperature: json['main']['temp'].toDouble(),
-      mainCondition: json['weather'][0]['description'], // <--- ВОЗВРАЩАЕМ 'description' для русского текста
+      mainCondition: json['weather'][0]['description'],
       iconCode: json['weather'][0]['icon'],
-      weatherId: json['weather'][0]['id'], // <--- ПАРСИМ ID ДЛЯ АНИМАЦИИ
+      weatherId: json['weather'][0]['id'],
       dateTime: dateTime,
+      minTemperature: null, // По умолчанию null
+      maxTemperature: null, // По умолчанию null
     );
   }
 }
