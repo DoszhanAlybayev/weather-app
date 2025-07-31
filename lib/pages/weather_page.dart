@@ -29,20 +29,16 @@ class _WeatherPageState extends State<WeatherPage> {
   void initState() {
     super.initState();
     _fetchWeatherAndForecast(_cityName);
-    // Добавляем слушатель к _cityController для отслеживания изменений текста
     _cityController.addListener(_onCityControllerChanged);
   }
 
-  // Метод, который вызывается при изменении текста в _cityController
   void _onCityControllerChanged() {
-    // Вызываем setState, чтобы перестроить виджет и обновить видимость кнопки очистки
     setState(() {});
   }
 
-
   @override
   void dispose() {
-    _cityController.removeListener(_onCityControllerChanged); // Удаляем слушатель
+    _cityController.removeListener(_onCityControllerChanged);
     _cityController.dispose();
     super.dispose();
   }
@@ -61,7 +57,8 @@ class _WeatherPageState extends State<WeatherPage> {
         _weather = current;
         _forecast = forecast;
         _cityName = current.cityName;
-        print("API mainCondition (by city): ${_weather!.mainCondition}"); 
+        print("API mainCondition (by city, text): ${_weather!.mainCondition}"); // Будет на русском
+        print("API weatherId (by city, for animation): ${_weather!.weatherId}"); // Число для анимации
       });
     } catch (e) {
       print("Ошибка при загрузке погоды: $e");
@@ -80,10 +77,10 @@ class _WeatherPageState extends State<WeatherPage> {
     }
   }
 
-  // НОВЫЙ МЕТОД: Получение погоды по координатам
+  // Метод для получения погоды по координатам
   _fetchWeatherAndForecastByCoordinates(double lat, double lon) async {
     setState(() {
-      _weather = null; // Показываем загрузку
+      _weather = null;
       _forecast = null;
       _errorMessage = null;
     });
@@ -95,7 +92,8 @@ class _WeatherPageState extends State<WeatherPage> {
         _weather = current;
         _forecast = forecast;
         _cityName = current.cityName;
-        print("API mainCondition (by coords): ${_weather!.mainCondition}");
+        print("API mainCondition (by coords, text): ${_weather!.mainCondition}"); // Будет на русском
+        print("API weatherId (by coords, for animation): ${_weather!.weatherId}"); // Число для анимации
       });
     } catch (e) {
       print("Ошибка при загрузке погоды по координатам: $e");
@@ -110,13 +108,11 @@ class _WeatherPageState extends State<WeatherPage> {
     }
   }
 
-
-  // НОВЫЙ МЕТОД: Получение текущего местоположения пользователя
+  // НОВЫЙ МЕТОД (восстановленный): Получение текущего местоположения пользователя
   _fetchCurrentLocationWeather() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Проверяем, включены ли службы геолокации
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,13 +121,10 @@ class _WeatherPageState extends State<WeatherPage> {
       return;
     }
 
-    // Проверяем разрешения на доступ к местоположению
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      // Разрешение отклонено, запрашиваем его у пользователя
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        // Разрешение все еще отклонено
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Разрешение на местоположение отклонено.')),
         );
@@ -140,28 +133,24 @@ class _WeatherPageState extends State<WeatherPage> {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      // Разрешение отклонено навсегда, пользователь должен изменить его в настройках
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Разрешение на местоположение отклонено навсегда. Пожалуйста, измените в настройках.')),
       );
       return;
     }
 
-    // Если все разрешения в порядке, получаем текущее местоположение
     try {
       setState(() {
-        _weather = null; // Показываем загрузку
+        _weather = null;
         _forecast = null;
         _errorMessage = null;
       });
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low, // Достаточно низкой точности для города
-        timeLimit: const Duration(seconds: 10), // Ограничиваем время ожидания
+        desiredAccuracy: LocationAccuracy.low,
+        timeLimit: const Duration(seconds: 10),
       );
 
-      // Используем широту и долготу для получения погоды
       await _fetchWeatherAndForecastByCoordinates(position.latitude, position.longitude);
-
     } catch (e) {
       print("Ошибка при получении местоположения: $e");
       setState(() {
@@ -173,31 +162,34 @@ class _WeatherPageState extends State<WeatherPage> {
     }
   }
 
+  // ОБНОВЛЕННАЯ ФУНКЦИЯ: ИСПОЛЬЗУЕМ weatherId
+  String getWeatherAnimation(int weatherId) {
+    // OpenWeatherMap ID ranges:
+    // 2xx Thunderstorm
+    // 3xx Drizzle
+    // 5xx Rain
+    // 6xx Snow
+    // 7xx Atmosphere (Mist, Smoke, Haze, Dust, Fog, Sand, Ash, Squall, Tornado)
+    // 800 Clear
+    // 801-804 Clouds
 
-  String getWeatherAnimation(String? mainCondition) {
-    if (mainCondition == null) return 'assets/animations/sunny.json';
-
-    switch (mainCondition.toLowerCase()) {
-      case 'clouds':
-      case 'mist':
-      case 'smoke':
-      case 'haze':
-      case 'dust':
-      case 'fog':
-      case 'broken clouds':
-        return 'assets/animations/cloudy.json';
-      case 'rain':
-      case 'drizzle':
-      case 'shower rain':
-        return 'assets/animations/rainy.json';
-      case 'thunderstorm':
-        return 'assets/animations/thunder.json';
-      case 'clear':
-        return 'assets/animations/sunny.json';
-      case 'snow':
-        return 'assets/animations/snowy.json';
-      default:
-        return 'assets/animations/sunny.json';
+    if (weatherId >= 200 && weatherId <= 232) {
+      return 'assets/animations/thunder.json'; // Гроза
+    } else if (weatherId >= 300 && weatherId <= 321) {
+      return 'assets/animations/rainy.json'; // Морось
+    } else if (weatherId >= 500 && weatherId <= 531) {
+      return 'assets/animations/rainy.json'; // Дождь
+    } else if (weatherId >= 600 && weatherId <= 622) {
+      return 'assets/animations/snowy.json'; // Снег
+    } else if (weatherId >= 701 && weatherId <= 781) {
+      return 'assets/animations/cloudy.json'; // Атмосферные явления (туман, дымка и т.д.)
+    } else if (weatherId == 800) {
+      return 'assets/animations/sunny.json'; // Ясное небо
+    } else if (weatherId >= 801 && weatherId <= 804) {
+      return 'assets/animations/cloudy.json'; // Облака
+    } else {
+      print("Unknown weather ID: $weatherId. Defaulting to sunny animation.");
+      return 'assets/animations/sunny.json';
     }
   }
 
@@ -207,15 +199,10 @@ class _WeatherPageState extends State<WeatherPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Получаем текущую дату и время
     final now = DateTime.now();
-    // Форматируем дату (например, "31 Июля 2025")
     final formattedDate = DateFormat('dd MMMM yyyy', 'ru').format(now);
-    // Форматируем время (например, "19:03")
     final formattedTime = DateFormat('HH:mm').format(now);
-    // Объединяем их
     final dateTimeString = '$formattedDate, $formattedTime';
-
 
     return Scaffold(
       appBar: AppBar(
@@ -225,7 +212,7 @@ class _WeatherPageState extends State<WeatherPage> {
           IconButton(
             icon: const Icon(Icons.location_on),
             onPressed: () {
-              _fetchCurrentLocationWeather();
+              _fetchCurrentLocationWeather(); // <--- ЭТОТ МЕТОД ТЕПЕРЬ ЕСТЬ
             },
             tooltip: 'Мое местоположение',
           ),
@@ -251,10 +238,10 @@ class _WeatherPageState extends State<WeatherPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 25.0),
                         child: TypeAheadField<City>(
-                          controller: _cityController, // <--- ИЗМЕНЕНИЕ: Используем _cityController
+                          controller: _cityController,
                           builder: (context, controller, focusNode) {
                             return TextField(
-                              controller: controller, // Используем контроллер из builder (теперь это _cityController)
+                              controller: controller,
                               focusNode: focusNode,
                               decoration: InputDecoration(
                                 hintText: 'Введите название города',
@@ -262,13 +249,12 @@ class _WeatherPageState extends State<WeatherPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-                                // ИЗМЕНЕНИЕ: Используем 'controller' из builder, который теперь связан с _cityController
                                 suffixIcon: controller.text.isNotEmpty
                                     ? IconButton(
                                         icon: const Icon(Icons.clear),
                                         onPressed: () {
-                                          controller.clear(); // Очищаем поле ввода
-                                          FocusScope.of(context).unfocus(); // Скрываем клавиатуру
+                                          controller.clear();
+                                          FocusScope.of(context).unfocus();
                                         },
                                       )
                                     : null,
@@ -317,10 +303,10 @@ class _WeatherPageState extends State<WeatherPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 25.0),
                       child: TypeAheadField<City>(
-                        controller: _cityController, // <--- ИЗМЕНЕНИЕ: Используем _cityController
+                        controller: _cityController,
                         builder: (context, controller, focusNode) {
                           return TextField(
-                            controller: controller, // Используем контроллер из builder (теперь это _cityController)
+                            controller: controller,
                             focusNode: focusNode,
                             decoration: InputDecoration(
                               hintText: 'Введите название города',
@@ -328,13 +314,12 @@ class _WeatherPageState extends State<WeatherPage> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-                              // ИЗМЕНЕНИЕ: Используем 'controller' из builder, который теперь связан с _cityController
                               suffixIcon: controller.text.isNotEmpty
                                   ? IconButton(
                                       icon: const Icon(Icons.clear),
                                       onPressed: () {
-                                        controller.clear(); // Очищаем поле ввода
-                                        FocusScope.of(context).unfocus(); // Скрываем клавиатуру
+                                        controller.clear();
+                                        FocusScope.of(context).unfocus();
                                       },
                                     )
                                   : null,
@@ -382,7 +367,7 @@ class _WeatherPageState extends State<WeatherPage> {
                       style: TextStyle(fontSize: 18, color: Colors.grey[700]),
                     ),
                     const SizedBox(height: 15),
-                    Lottie.asset(getWeatherAnimation(_weather!.mainCondition), width: 200, height: 200),
+                    Lottie.asset(getWeatherAnimation(_weather!.weatherId), width: 200, height: 200),
                     const SizedBox(height: 15),
                     Text(
                       '${_weather!.temperature.round()}°C',
@@ -396,11 +381,11 @@ class _WeatherPageState extends State<WeatherPage> {
                     const SizedBox(height: 30),
                     const Text(
                       'Прогноз на ближайшие часы:',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
                     SizedBox(
-                      height: 200,
+                      height: 230,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: _forecast!.length > 8 ? 8 : _forecast!.length,
@@ -417,7 +402,7 @@ class _WeatherPageState extends State<WeatherPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Container(
-                              width: 120,
+                              width: 135,
                               padding: const EdgeInsets.all(12.0),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -432,7 +417,7 @@ class _WeatherPageState extends State<WeatherPage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Lottie.asset(
-                                    getWeatherAnimation(forecastItem.mainCondition),
+                                    getWeatherAnimation(forecastItem.weatherId),
                                     width: 60,
                                     height: 60,
                                     fit: BoxFit.contain,
@@ -445,10 +430,10 @@ class _WeatherPageState extends State<WeatherPage> {
                                   Expanded(
                                     child: Text(
                                       forecastItem.mainCondition,
-                                      style: const TextStyle(fontSize: 14),
+                                      style: const TextStyle(fontSize: 13),
                                       textAlign: TextAlign.center,
                                       overflow: TextOverflow.ellipsis,
-                                      maxLines: 2,
+                                      maxLines: 3,
                                     ),
                                   ),
                                 ],
