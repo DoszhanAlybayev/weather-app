@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:weather_app/models/weather_model.dart';
 import 'package:weather_app/services/weather_service.dart';
-import 'package:lottie/lottie.dart'; // Убедитесь, что Lottie импортирован
+import 'package:lottie/lottie.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:weather_app/models/city_model.dart';
 
 class WeatherPage extends StatefulWidget {
   const WeatherPage({super.key});
@@ -13,33 +15,31 @@ class WeatherPage extends StatefulWidget {
 
 class _WeatherPageState extends State<WeatherPage> {
   final _weatherService = WeatherService();
-  Weather? _weather; // Текущая погода
-  List<Weather>? _forecast; // Прогноз погоды
-  String _cityName = "Almaty"; // Город по умолчанию при запуске
+  Weather? _weather;
+  List<Weather>? _forecast;
+  String _cityName = "Almaty";
 
-  final TextEditingController _cityController = TextEditingController(); // Контроллер для поля поиска
+  final TextEditingController _cityController = TextEditingController();
 
-  String? _errorMessage; // Переменная для хранения сообщения об ошибке
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // Загружаем погоду и прогноз для города по умолчанию при старте страницы
     _fetchWeatherAndForecast(_cityName);
   }
 
   @override
   void dispose() {
-    _cityController.dispose(); // Освобождаем контроллер при уничтожении виджета
+    _cityController.dispose();
     super.dispose();
   }
 
-  // Метод для получения текущей погоды и прогноза
   _fetchWeatherAndForecast(String cityName) async {
     setState(() {
-      _weather = null; // Сбрасываем данные текущей погоды для показа индикатора загрузки
-      _forecast = null; // Сбрасываем данные прогноза
-      _errorMessage = null; // Сбрасываем предыдущие ошибки
+      _weather = null;
+      _forecast = null;
+      _errorMessage = null;
     });
     try {
       final current = await _weatherService.getWeather(cityName);
@@ -48,30 +48,27 @@ class _WeatherPageState extends State<WeatherPage> {
       setState(() {
         _weather = current;
         _forecast = forecast;
-        _cityName = current.cityName; // Обновляем имя города из ответа API (может отличаться от введенного)
+        _cityName = current.cityName;
       });
     } catch (e) {
-      print("Ошибка при загрузке погоды: $e"); // Вывод ошибки в консоль для отладки
+      print("Ошибка при загрузке погоды: $e");
       setState(() {
-        _weather = null; // Очищаем данные, чтобы показать сообщение об ошибке
+        _weather = null;
         _forecast = null;
-        // Определяем более конкретное сообщение об ошибке
-        if (e.toString().contains('404')) { // Если ошибка 404 (Not Found)
+        if (e.toString().contains('404')) {
           _errorMessage = 'Город не найден. Пожалуйста, проверьте название.';
         } else {
           _errorMessage = 'Не удалось загрузить данные о погоде. Проверьте подключение к Интернету.';
         }
       });
-      // Показываем SnackBar с сообщением об ошибке
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_errorMessage!)),
       );
     }
   }
 
-  // Метод для определения пути к Lottie-анимации на основе погодного условия
-String getWeatherAnimation(String? mainCondition) {
-    if (mainCondition == null) return 'assets/animations/sunny.json'; // По умолчанию
+  String getWeatherAnimation(String? mainCondition) {
+    if (mainCondition == null) return 'assets/animations/sunny.json';
 
     switch (mainCondition.toLowerCase()) {
       case 'clouds':
@@ -96,7 +93,6 @@ String getWeatherAnimation(String? mainCondition) {
     }
   }
 
-  // Метод для получения URL иконки погоды (используется как запасной, если нет Lottie)
   String getWeatherIconUrl(String iconCode) {
     return 'http://openweathermap.org/img/wn/$iconCode@2x.png';
   }
@@ -108,10 +104,10 @@ String getWeatherAnimation(String? mainCondition) {
         title: const Text('Погода'),
         centerTitle: true,
       ),
-      body: Center( // Центрируем весь контент по горизонтали
-        child: (_weather == null || _forecast == null) // Если данных нет
-            ? (_errorMessage != null // И есть сообщение об ошибке
-                ? Column( // Показываем UI с ошибкой
+      body: Center(
+        child: (_weather == null || _forecast == null)
+            ? (_errorMessage != null
+                ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.error_outline, size: 80, color: Colors.red[400]),
@@ -125,120 +121,137 @@ String getWeatherAnimation(String? mainCondition) {
                         ),
                       ),
                       const SizedBox(height: 30),
-                      // Поле поиска дублируется здесь, чтобы оно всегда было видно
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 25.0),
-                        child: TextField(
-                          controller: _cityController,
-                          decoration: InputDecoration(
-                            hintText: 'Введите название города',
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.search),
-                              onPressed: () {
-                                if (_cityController.text.isNotEmpty) {
-                                  _fetchWeatherAndForecast(_cityController.text);
+                        child: TypeAheadField<City>(
+                          builder: (context, controller, focusNode) {
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Введите название города',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                              ),
+                              onSubmitted: (value) {
+                                if (value.isNotEmpty) {
+                                  _fetchWeatherAndForecast(value);
                                   FocusScope.of(context).unfocus();
-                                  _cityController.clear(); // Очищаем поле после поиска
+                                  _cityController.clear();
                                 }
                               },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-                          ),
-                          onSubmitted: (value) {
-                            if (value.isNotEmpty) {
-                              _fetchWeatherAndForecast(value);
-                              FocusScope.of(context).unfocus();
-                              _cityController.clear(); // Очищаем поле после поиска
+                            );
+                          },
+                          // УДАЛЕНО: minCharsForSuggestions
+                          suggestionsCallback: (pattern) async {
+                            if (pattern.isEmpty) return [];
+                            try {
+                              return await _weatherService.searchCities(pattern);
+                            } catch (e) {
+                              print("Ошибка при поиске городов: $e");
+                              return [];
                             }
+                          },
+                          itemBuilder: (context, suggestion) {
+                            return ListTile(
+                              title: Text(suggestion.displayName),
+                            );
+                          },
+                          onSelected: (suggestion) {
+                            _cityController.text = suggestion.name;
+                            _fetchWeatherAndForecast(suggestion.name);
+                            FocusScope.of(context).unfocus();
+                            _cityController.clear();
                           },
                         ),
                       ),
                     ],
                   )
-                : const CircularProgressIndicator() // Иначе, если данных нет, но и ошибки нет, значит, идет загрузка
+                : const CircularProgressIndicator()
               )
-            : SingleChildScrollView( // Если данные успешно загружены, показываем основной UI
+            : SingleChildScrollView(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start, // Выравнивание по верху
-                  crossAxisAlignment: CrossAxisAlignment.center, // Центрирование по горизонтали
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 40), // Отступ сверху
-
-                    // Поле для поиска города
+                    const SizedBox(height: 40),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 25.0),
-                      child: TextField(
-                        controller: _cityController,
-                        decoration: InputDecoration(
-                          hintText: 'Введите название города',
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search),
-                            onPressed: () {
-                              if (_cityController.text.isNotEmpty) {
-                                _fetchWeatherAndForecast(_cityController.text);
-                                FocusScope.of(context).unfocus(); // Скрыть клавиатуру
-                                _cityController.clear(); // Очистить поле
+                      child: TypeAheadField<City>(
+                        builder: (context, controller, focusNode) {
+                          return TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              hintText: 'Введите название города',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                            ),
+                            onSubmitted: (value) {
+                              if (value.isNotEmpty) {
+                                _fetchWeatherAndForecast(value);
+                                FocusScope.of(context).unfocus();
+                                _cityController.clear();
                               }
                             },
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-                        ),
-                        onSubmitted: (value) { // Поиск по нажатию Enter
-                          if (value.isNotEmpty) {
-                            _fetchWeatherAndForecast(value);
-                            FocusScope.of(context).unfocus(); // Скрыть клавиатуру
-                            _cityController.clear(); // Очистить поле
+                          );
+                        },
+                        // УДАЛЕНО: minCharsForSuggestions
+                        suggestionsCallback: (pattern) async {
+                          if (pattern.isEmpty) return [];
+                          try {
+                            return await _weatherService.searchCities(pattern);
+                          } catch (e) {
+                            print("Ошибка при поиске городов: $e");
+                            return [];
                           }
+                        },
+                        itemBuilder: (context, suggestion) {
+                          return ListTile(
+                            title: Text(suggestion.displayName),
+                          );
+                        },
+                        onSelected: (suggestion) {
+                          _cityController.text = suggestion.name;
+                          _fetchWeatherAndForecast(suggestion.name);
+                          FocusScope.of(context).unfocus();
+                          _cityController.clear();
                         },
                       ),
                     ),
-                    const SizedBox(height: 30), // Отступ после TextField
-
-                    // Название города
+                    const SizedBox(height: 30),
                     Text(
-                      _cityName, // Используем _cityName из состояния
+                      _cityName,
                       style: const TextStyle(
                           fontSize: 36, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
-
-                    // Lottie Анимация текущей погоды
                     Lottie.asset(getWeatherAnimation(_weather!.mainCondition), width: 200, height: 200),
-
                     const SizedBox(height: 15),
-
-                    // Температура текущей погоды
                     Text(
                       '${_weather!.temperature.round()}°C',
                       style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 10),
-
-                    // Основное состояние текущей погоды
                     Text(
                       _weather!.mainCondition,
                       style: const TextStyle(fontSize: 26),
                     ),
-                    const SizedBox(height: 30), // Отступ перед прогнозом
-
-                    // Заголовок прогноза погоды
+                    const SizedBox(height: 30),
                     const Text(
                       'Прогноз на ближайшие часы:',
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
-                    // Горизонтальный список прогноза
-                    SizedBox( // Ограничиваем высоту ListView.builder
+                    SizedBox(
                       height: 200,
                       child: ListView.builder(
-                        scrollDirection: Axis.horizontal, // Горизонтальная прокрутка
-                        itemCount: _forecast!.length > 8 ? 8 : _forecast!.length, // Показываем до 8 элементов (24 часа)
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _forecast!.length > 8 ? 8 : _forecast!.length,
                         itemBuilder: (context, index) {
                           final forecastItem = _forecast![index];
                           final itemDateTime = forecastItem.dateTime!;
@@ -251,18 +264,18 @@ String getWeatherAnimation(String? mainCondition) {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Container( // Контейнер для фиксированной ширины карточки
+                            child: Container(
                               width: 120,
                               padding: const EdgeInsets.all(12.0),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    timeString, // Время прогноза
+                                    timeString,
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
                                   Text(
-                                    dayString, // Дата прогноза
+                                    dayString,
                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
                                   const SizedBox(height: 8),
@@ -274,16 +287,16 @@ String getWeatherAnimation(String? mainCondition) {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '${forecastItem.temperature.round()}°C', // Температура прогноза
+                                    '${forecastItem.temperature.round()}°C',
                                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                                   ),
-                                  Expanded( // Позволяет тексту описания занимать доступное пространство
+                                  Expanded(
                                     child: Text(
                                       forecastItem.mainCondition,
                                       style: const TextStyle(fontSize: 14),
                                       textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis, // Обрезает текст, если не помещается
-                                      maxLines: 2, // Максимум 2 строки
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
                                     ),
                                   ),
                                 ],
@@ -293,7 +306,7 @@ String getWeatherAnimation(String? mainCondition) {
                         },
                       ),
                     ),
-                    const SizedBox(height: 20), // Отступ в конце
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
