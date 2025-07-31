@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Для отображения погоды в вашем текущем местоположении.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Для отображения погоды в вашем текущем местоположении, даже когда приложение закрыто (необходимо для фонового определения).</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Для отображения погоды в вашем текущем местоположении, даже когда приложение закрыто.</string>
+	</dict>
 </plist>

@@ -31,9 +31,10 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.1 # Пакет для выполнения HTTP-запросов
-  geolocator: ^12.0.0 # Опционально: если захотим определять погоду по текущему местоположению
+  geolocator: ^14.0.2 # Опционально: если захотим определять погоду по текущему местоположению
   flutter_dotenv: ^5.1.0 # для более безопасного хранения API-ключа
   flutter_typeahead: ^5.2.0
+  intl: ^0.19.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
