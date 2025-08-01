@@ -303,22 +303,30 @@ class _WeatherPageState extends State<WeatherPage> {
                       ),
                       const SizedBox(height: 30),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0), // <-- Изменено
                         child: TypeAheadField<City>(
                           controller: _cityController,
                           builder: (context, controller, focusNode) {
                             return TextField(
                               controller: controller,
                               focusNode: focusNode,
-                              decoration: InputDecoration(
+                              decoration: InputDecoration( // <-- Изменено
                                 hintText: 'Введите название города',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                hintStyle: TextStyle(color: Colors.grey[600]),
+                                filled: true,
+                                fillColor: Colors.grey[200],
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(25.0),
+                                  borderSide: BorderSide(color: Colors.transparent),
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(25.0),
+                                  borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
                                 suffixIcon: controller.text.isNotEmpty
                                     ? IconButton(
-                                        icon: const Icon(Icons.clear),
+                                        icon: Icon(Icons.clear, color: Colors.grey[600]),
                                         onPressed: () {
                                           controller.clear();
                                           FocusScope.of(context).unfocus();
@@ -368,22 +376,30 @@ class _WeatherPageState extends State<WeatherPage> {
                   children: [
                     const SizedBox(height: 40),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0), // <-- Изменено
                       child: TypeAheadField<City>(
                         controller: _cityController,
                         builder: (context, controller, focusNode) {
                           return TextField(
                             controller: controller,
                             focusNode: focusNode,
-                            decoration: InputDecoration(
+                            decoration: InputDecoration( // <-- Изменено
                               hintText: 'Введите название города',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                              hintStyle: TextStyle(color: Colors.grey[600]),
+                              filled: true,
+                              fillColor: Colors.grey[200],
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(25.0),
+                                borderSide: BorderSide(color: Colors.transparent),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(25.0),
+                                borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
                               suffixIcon: controller.text.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear),
+                                      icon: Icon(Icons.clear, color: Colors.grey[600]),
                                       onPressed: () {
                                         controller.clear();
                                         FocusScope.of(context).unfocus();
@@ -511,7 +527,6 @@ class _WeatherPageState extends State<WeatherPage> {
                       ),
                     ),
                     const SizedBox(height: 30),
-                    // НОВЫЙ РАЗДЕЛ: ПРОГНОЗ НА ДНИ ВПЕРЕД
                     if (_dailyForecast != null && _dailyForecast!.isNotEmpty)
                       const Text(
                         'Прогноз на несколько дней:',
@@ -546,10 +561,12 @@ class _WeatherPageState extends State<WeatherPage> {
                                       style: const TextStyle(fontSize: 14, color: Colors.grey),
                                     ),
                                     const SizedBox(height: 4),
-                                    // Отображаем основное погодное условие дня
                                     Text(
                                       dayForecast.mainCondition,
-                                      style: const TextStyle(fontSize: 14),
+                                      style: const TextStyle(fontSize: 13),
+                                      textAlign: TextAlign.left,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),
@@ -559,7 +576,6 @@ class _WeatherPageState extends State<WeatherPage> {
                                   height: 80,
                                   fit: BoxFit.contain,
                                 ),
-                                // Отображаем MIN/MAX температуры
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
