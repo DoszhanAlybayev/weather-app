@@ -40,19 +40,19 @@ class WeatherService {
       List<dynamic> cityDataKZ = jsonDecode(responseKZ.body);
       kzCities = cityDataKZ.map((json) => City.fromJson(json)).toList();
     }
-    if (kzCities.isNotEmpty) {
-      return kzCities;
-    }
     final response = await http.get(Uri.parse('http://api.openweathermap.org/geo/1.0/direct?q=$query&limit=10&appid=$apiKey&lang=ru'));
+    List<City> allCities = [];
     if (response.statusCode == 200) {
       List<dynamic> cityData = jsonDecode(response.body);
-      List<City> allCities = cityData.map((json) => City.fromJson(json)).toList();
-      List<City> kzCities = allCities.where((c) => c.country.toUpperCase() == 'KZ').toList();
-      List<City> otherCities = allCities.where((c) => c.country.toUpperCase() != 'KZ').toList();
-      return [...kzCities, ...otherCities];
-    } else {
-      throw Exception('Не удалось найти города.');
+      allCities = cityData.map((json) => City.fromJson(json)).toList();
     }
+    List<City> otherCities = allCities.where((c) => c.country.toUpperCase() != 'KZ').toList();
+    // Удаляем дубли
+    kzCities = {
+      ...kzCities,
+      ...allCities.where((c) => c.country.toUpperCase() == 'KZ')
+    }.toList();
+    return [...kzCities, ...otherCities];
   }
 
   Future<Weather> getWeatherByCoordinates(double lat, double lon) async {

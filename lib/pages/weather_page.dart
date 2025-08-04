@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:weather_app/providers/weather_provider.dart';
 import 'package:weather_app/utils/weather_animation_utils.dart';
 import 'dart:async';
+import 'package:app_settings/app_settings.dart';
 
 class WeatherPage extends StatefulWidget {
   const WeatherPage({super.key});
@@ -24,12 +25,18 @@ class WeatherPage extends StatefulWidget {
 class _WeatherPageState extends State<WeatherPage> {
   final TextEditingController _cityController = TextEditingController();
   Timer? _debounce;
+  StreamSubscription<ServiceStatus>? _locationServiceSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<WeatherProvider>(context, listen: false).fetchWeatherAndForecast("Almaty");
+      _fetchCurrentLocationWeather();
+    });
+    _locationServiceSub = Geolocator.getServiceStatusStream().listen((status) {
+      if (status == ServiceStatus.enabled) {
+        _fetchCurrentLocationWeather();
+      }
     });
     _cityController.addListener(_onCityControllerChanged);
     Intl.defaultLocale = 'ru';
@@ -41,6 +48,7 @@ class _WeatherPageState extends State<WeatherPage> {
 
   @override
   void dispose() {
+    _locationServiceSub?.cancel();
     _debounce?.cancel();
     _cityController.removeListener(_onCityControllerChanged);
     _cityController.dispose();
@@ -53,7 +61,10 @@ class _WeatherPageState extends State<WeatherPage> {
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Службы геолокации отключены.')),
+        const SnackBar(
+          content: Text('Службы геолокации отключены.'),
+          duration: Duration(seconds: 10),
+        ),
       );
       return;
     }
@@ -82,8 +93,18 @@ class _WeatherPageState extends State<WeatherPage> {
           .fetchWeatherAndForecastByCoordinates(position.latitude, position.longitude);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось получить текущее местоположение.')),
+        SnackBar(
+          content: const Text('Не удалось получить местоположение или загрузить погоду. Проверьте интернет и разрешения.'),
+          action: SnackBarAction(
+            label: 'Повторить',
+            onPressed: () {
+              _fetchCurrentLocationWeather();
+            },
+          ),
+        ),
       );
+      Provider.of<WeatherProvider>(context, listen: false).errorMessage = 'Ошибка загрузки данных по местоположению.';
+      Provider.of<WeatherProvider>(context, listen: false).notifyListeners();
     }
   }
 
