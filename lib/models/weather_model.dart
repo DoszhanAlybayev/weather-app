@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 class Weather {
@@ -24,7 +23,6 @@ class Weather {
 
   factory Weather.fromJson(Map<String, dynamic> json) {
     String cityName = json['name'] ?? json['city']?['name'] ?? 'Unknown';
-
     DateTime? dateTime;
     if (json.containsKey('dt')) {
       dateTime = DateTime.fromMillisecondsSinceEpoch(json['dt'] * 1000);
@@ -35,7 +33,6 @@ class Weather {
         debugPrint('Error parsing dt_txt: $e');
       }
     }
-
     return Weather(
       cityName: cityName,
       temperature: json['main']['temp'].toDouble(),
@@ -43,8 +40,8 @@ class Weather {
       iconCode: json['weather'][0]['icon'],
       weatherId: json['weather'][0]['id'],
       dateTime: dateTime,
-      minTemperature: null, // По умолчанию null
-      maxTemperature: null, // По умолчанию null
+      minTemperature: null,
+      maxTemperature: null,
     );
   }
 }
